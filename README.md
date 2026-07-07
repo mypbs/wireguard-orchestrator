@@ -111,7 +111,8 @@ Fix (run from the parent directory of the installation, e.g. ~):
   unzip -o main.zip
   cp .env.bak chris-wireguard-web-orchestrator-main/.env
   cd chris-wireguard-web-orchestrator-main
-  docker compose up -d --build
+  sudo docker compose up -d --build
+(drop sudo if running as root)
 
 ## After a successful install
 Confirm by opening http://[server-ip]:8899 in a browser. The setup or login page
@@ -209,10 +210,12 @@ cp .env.bak chris-wireguard-web-orchestrator-main/.env
 
 # 4. Rebuild and restart
 cd chris-wireguard-web-orchestrator-main
-docker compose up -d --build
+sudo docker compose up -d --build
 ```
 
-Your database data is safe — it lives in a Docker volume that `docker compose up --build` never touches.
+> If you're running as **root** (not recommended), drop the `sudo`. If you get a "permission denied" error without `sudo`, add your user to the docker group: `sudo usermod -aG docker $USER && newgrp docker`
+
+Your database data is safe — it lives in a Docker volume that `sudo docker compose up --build` never touches.
 
 ---
 
