@@ -105,11 +105,12 @@ Fix: The app runs migrations on startup. If the db container wasn't ready,
 restart: docker compose restart app
 
 Problem: Existing install — want to update to latest version
-Fix:
+Fix (run from the parent directory of the installation, e.g. ~):
+  cp chris-wireguard-web-orchestrator-main/.env .env.bak
   wget https://github.com/mypbs/chris-wireguard-web-orchestrator/archive/refs/heads/main.zip
   unzip -o main.zip
+  cp .env.bak chris-wireguard-web-orchestrator-main/.env
   cd chris-wireguard-web-orchestrator-main
-  cp ../chris-wireguard-web-orchestrator-main-old/.env .env   # preserve your secret
   docker compose up -d --build
 
 ## After a successful install
@@ -193,12 +194,25 @@ The second number (`3000`) is internal to the container — never change that.
 
 ## Updating
 
+Run these from the **parent directory** of your installation (e.g. `~`, wherever you originally ran `unzip`):
+
 ```bash
+# 1. Save your existing .env before anything else
+cp chris-wireguard-web-orchestrator-main/.env .env.bak
+
+# 2. Download and overwrite the installation files
 wget https://github.com/mypbs/chris-wireguard-web-orchestrator/archive/refs/heads/main.zip
 unzip -o main.zip
+
+# 3. Restore your saved .env (unzip -o would have wiped it)
+cp .env.bak chris-wireguard-web-orchestrator-main/.env
+
+# 4. Rebuild and restart
 cd chris-wireguard-web-orchestrator-main
 docker compose up -d --build
 ```
+
+Your database data is safe — it lives in a Docker volume that `docker compose up --build` never touches.
 
 ---
 
