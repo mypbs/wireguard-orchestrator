@@ -127,6 +127,8 @@ export interface ImportResult {
   wireguardStatus?: string | null;
   /** @nullable */
   existingPeerCount?: number | null;
+  /** @nullable */
+  importedClientCount?: number | null;
 }
 
 export interface ActionResult {

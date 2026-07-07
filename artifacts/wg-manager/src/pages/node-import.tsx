@@ -59,8 +59,8 @@ export default function NodeImport() {
             res.wireguardPort     ? `Port       : ${res.wireguardPort}` : null,
             res.wireguardSubnet   ? `Subnet     : ${res.wireguardSubnet}` : null,
             res.wireguardStatus   ? `Status     : ${res.wireguardStatus.toUpperCase()}` : null,
-            res.existingPeerCount !== null && res.existingPeerCount !== undefined
-              ? `Peers found: ${res.existingPeerCount} (existing peers are not imported — add clients via the node page)`
+            res.importedClientCount !== null && res.importedClientCount !== undefined
+              ? `Clients imported: ${res.importedClientCount} of ${res.existingPeerCount ?? 0} peer(s) found`
               : null,
           ].filter(Boolean).join("\n");
           setImportOutput(lines);
@@ -130,7 +130,7 @@ export default function NodeImport() {
               IMPORT CONFIGURATION
             </h2>
             <p className="text-sm font-mono text-muted-foreground mb-4">
-              This reads <span className="font-mono">/etc/wireguard/*.conf</span>, extracts the server keys, port, and subnet, and registers this node as configured. Existing WireGuard peers are counted but not imported — you can add clients normally afterwards.
+              Reads <span className="font-mono">/etc/wireguard/*.conf</span>, imports the server keys, port, subnet, and all existing peers as clients. Imported clients show in the node's client list — their VPN still works, but the QR code and config file can't be regenerated (the private key only lives on the device).
             </p>
             <Button
               onClick={handleImport}

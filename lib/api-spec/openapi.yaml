@@ -697,6 +697,8 @@ components:
           type: ["string", "null"]
         existingPeerCount:
           type: ["integer", "null"]
+        importedClientCount:
+          type: ["integer", "null"]
 
     ActionResult:
       type: object

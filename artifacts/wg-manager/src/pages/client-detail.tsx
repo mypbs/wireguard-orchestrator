@@ -14,7 +14,7 @@ import {
 import { useLocation, Link, useParams } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowLeft, Download, Trash2, Key, Network } from "lucide-react";
+import { ArrowLeft, Download, Trash2, Key, Network, AlertTriangle } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { ConfirmationDialog } from "@/components/confirmation-dialog";
 
@@ -27,8 +27,8 @@ export default function ClientDetail() {
 
   const { data: node } = useGetNode(nodeId, { query: { queryKey: getGetNodeQueryKey(nodeId), enabled: !!nodeId } });
   const { data: client, isLoading: clientLoading } = useGetClient(nodeId, clientId, { query: { queryKey: getGetClientQueryKey(nodeId, clientId), enabled: !!nodeId && !!clientId } });
-  const { data: configData } = useGetClientConfig(nodeId, clientId, { query: { queryKey: getGetClientConfigQueryKey(nodeId, clientId), enabled: !!nodeId && !!clientId } });
-  const { data: qrData } = useGetClientQr(nodeId, clientId, { query: { queryKey: getGetClientQrQueryKey(nodeId, clientId), enabled: !!nodeId && !!clientId } });
+  const { data: configData, isError: configError } = useGetClientConfig(nodeId, clientId, { query: { queryKey: getGetClientConfigQueryKey(nodeId, clientId), enabled: !!nodeId && !!clientId, retry: false } });
+  const { data: qrData, isError: qrError } = useGetClientQr(nodeId, clientId, { query: { queryKey: getGetClientQrQueryKey(nodeId, clientId), enabled: !!nodeId && !!clientId, retry: false } });
   
   const deleteClient = useDeleteClient();
 
@@ -132,22 +132,35 @@ export default function ClientDetail() {
           <div className="bg-card border border-border rounded-lg p-6">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-lg font-mono font-bold tracking-tight">CONFIGURATION FILE</h2>
-              <Button 
-                onClick={handleDownload} 
-                variant="outline" 
-                size="sm" 
-                className="font-mono text-xs font-bold tracking-wider"
-                disabled={!configData}
-              >
-                <Download className="w-4 h-4 mr-2" />
-                DOWNLOAD .CONF
-              </Button>
+              {!configError && (
+                <Button 
+                  onClick={handleDownload} 
+                  variant="outline" 
+                  size="sm" 
+                  className="font-mono text-xs font-bold tracking-wider"
+                  disabled={!configData}
+                >
+                  <Download className="w-4 h-4 mr-2" />
+                  DOWNLOAD .CONF
+                </Button>
+              )}
             </div>
-            <div className="bg-[#0a0a0a] rounded-md p-4 overflow-x-auto border border-border">
-              <pre className="text-xs font-mono text-gray-300">
-                {configData?.config || "Loading configuration..."}
-              </pre>
-            </div>
+            {configError ? (
+              <div className="flex items-start gap-3 p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-md">
+                <AlertTriangle className="w-4 h-4 text-yellow-500 shrink-0 mt-0.5" />
+                <div className="font-mono text-xs text-yellow-400 leading-relaxed">
+                  <p className="font-bold mb-1">IMPORTED CLIENT — CONFIG UNAVAILABLE</p>
+                  <p>This client was imported from an existing WireGuard node. The private key only exists on the client device and was never stored here, so the config file and QR code can't be regenerated.</p>
+                  <p className="mt-2">The existing config on the device still works — no action needed.</p>
+                </div>
+              </div>
+            ) : (
+              <div className="bg-[#0a0a0a] rounded-md p-4 overflow-x-auto border border-border">
+                <pre className="text-xs font-mono text-gray-300">
+                  {configData?.config || "Loading configuration..."}
+                </pre>
+              </div>
+            )}
           </div>
         </div>
 
@@ -157,7 +170,12 @@ export default function ClientDetail() {
             <p className="text-xs font-mono text-muted-foreground text-center mb-6">Scan from WireGuard app</p>
             
             <div className="bg-white p-4 rounded-xl shadow-sm mb-6 inline-block">
-              {qrData?.qrBase64 ? (
+              {qrError ? (
+                <div className="w-48 h-48 flex flex-col items-center justify-center bg-gray-100 gap-2 p-4">
+                  <AlertTriangle className="w-8 h-8 text-yellow-500" />
+                  <span className="font-mono text-xs text-gray-500 text-center leading-tight">Private key not stored — use existing device config</span>
+                </div>
+              ) : qrData?.qrBase64 ? (
                 <img 
                   src={`data:image/png;base64,${qrData.qrBase64}`} 
                   alt="WireGuard QR Code" 

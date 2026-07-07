@@ -184,6 +184,11 @@ router.get("/nodes/:nodeId/clients/:clientId/config", requireAuth, async (req, r
 
     if (!client) { res.status(404).json({ error: "Client not found" }); return; }
 
+    if (!client.privateKey) {
+      res.status(409).json({ error: "Config unavailable — this client was imported from an existing node and its private key is not stored on the server. The client device's existing config still works." });
+      return;
+    }
+
     const node = await getNodeOrFail(nodeId, res);
     if (!node) return;
     if (!node.serverPublicKey) { res.status(400).json({ error: "Node has no server key" }); return; }
@@ -215,6 +220,11 @@ router.get("/nodes/:nodeId/clients/:clientId/qr", requireAuth, async (req, res):
       .where(and(eq(clientsTable.id, clientId), eq(clientsTable.nodeId, nodeId)));
 
     if (!client) { res.status(404).json({ error: "Client not found" }); return; }
+
+    if (!client.privateKey) {
+      res.status(409).json({ error: "QR unavailable — this client was imported and its private key is not stored. The client device's existing config still works." });
+      return;
+    }
 
     const node = await getNodeOrFail(nodeId, res);
     if (!node) return;

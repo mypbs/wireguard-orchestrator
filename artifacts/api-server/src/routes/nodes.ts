@@ -1,6 +1,6 @@
 import { Router, type Response } from "express";
 import { db, nodesTable, clientsTable } from "@workspace/db";
-import { eq, count } from "drizzle-orm";
+import { eq, count, and } from "drizzle-orm";
 import { requireAuth } from "../middlewares/auth.js";
 import { testSshConnection, sshExec } from "../lib/ssh.js";
 import { buildSshOpts } from "../lib/node-ssh.js";
@@ -250,6 +250,8 @@ router.post("/nodes/:nodeId/import-wireguard", requireAuth, async (req, res): Pr
 
     const result = await importWireguardConfig(buildSshOpts(node));
 
+    let importedClientCount = 0;
+
     if (result.success && result.privateKey && result.publicKey && result.iface) {
       await db.update(nodesTable).set({
         wireguardStatus: result.wireguardStatus ?? "stopped",
@@ -259,6 +261,27 @@ router.post("/nodes/:nodeId/import-wireguard", requireAuth, async (req, res): Pr
         serverPublicKey: result.publicKey,
         serverPrivateKey: Buffer.from(result.privateKey).toString("base64"),
       }).where(eq(nodesTable.id, nodeId));
+
+      if (result.peers && result.peers.length > 0) {
+        for (let i = 0; i < result.peers.length; i++) {
+          const peer = result.peers[i];
+          if (!peer.publicKey) continue;
+          const existing = await db.select({ id: clientsTable.id })
+            .from(clientsTable)
+            .where(and(eq(clientsTable.nodeId, nodeId), eq(clientsTable.publicKey, peer.publicKey)));
+          if (existing.length === 0) {
+            await db.insert(clientsTable).values({
+              nodeId,
+              name: peer.name?.trim() || `Imported Client ${i + 1}`,
+              publicKey: peer.publicKey,
+              privateKey: "",
+              presharedKey: peer.presharedKey,
+              allowedIps: peer.allowedIps,
+            });
+            importedClientCount++;
+          }
+        }
+      }
     }
 
     res.json({
@@ -269,6 +292,7 @@ router.post("/nodes/:nodeId/import-wireguard", requireAuth, async (req, res): Pr
       wireguardSubnet: result.subnet ?? null,
       wireguardStatus: result.wireguardStatus ?? null,
       existingPeerCount: result.existingPeerCount ?? null,
+      importedClientCount,
     });
   } catch (err) {
     req.log.error({ err }, "importWireguard failed");

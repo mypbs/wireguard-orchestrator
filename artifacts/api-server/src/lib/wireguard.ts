@@ -180,6 +180,7 @@ export async function importWireguardConfig(ssh: SshConnectOptions): Promise<{
   subnet?: string;
   wireguardStatus?: "running" | "stopped";
   existingPeerCount?: number;
+  peers?: Array<{ publicKey: string; presharedKey: string; allowedIps: string; name: string | null }>;
 }> {
   const importScript = `
 set -e
@@ -200,6 +201,16 @@ echo "ADDR=$ADDR"
 PEERS=$(grep -c '^\\[Peer\\]' "$CONF_FILE" 2>/dev/null || echo 0)
 echo "PEERS=$PEERS"
 if systemctl is-active "wg-quick@$IFACE" > /dev/null 2>&1; then echo "RUNNING=1"; else echo "RUNNING=0"; fi
+awk '
+BEGIN { in_peer=0; pub=""; psk=""; ips=""; nm="" }
+/^[[:space:]]*#/ && !in_peer { sub(/^[[:space:]]*#[[:space:]]*/,""); nm=$0; next }
+/^\\[Peer\\]/ { if (in_peer && pub!="") printf "PEER|%s|%s|%s|%s\\n", pub, psk, ips, nm; in_peer=1; pub=""; psk=""; ips=""; nm=""; next }
+/^\\[/ && !/Peer/ { if (in_peer && pub!="") printf "PEER|%s|%s|%s|%s\\n", pub, psk, ips, nm; in_peer=0; nm=""; next }
+in_peer && /^PublicKey[[:space:]]*=/ { pub=$3; next }
+in_peer && /^PresharedKey[[:space:]]*=/ { psk=$3; next }
+in_peer && /^AllowedIPs[[:space:]]*=/ { gsub(/,.*/,"",$3); ips=$3; next }
+END { if (in_peer && pub!="") printf "PEER|%s|%s|%s|%s\\n", pub, psk, ips, nm }
+' "$CONF_FILE"
 `.trim();
 
   try {
@@ -232,6 +243,19 @@ if systemctl is-active "wg-quick@$IFACE" > /dev/null 2>&1; then echo "RUNNING=1"
     const addrMatch = addr.match(/^(\d+\.\d+\.\d+)\.\d+\/(\d+)$/);
     const subnet = addrMatch ? `${addrMatch[1]}.0/${addrMatch[2]}` : "10.8.0.0/24";
 
+    const peers = result.stdout.split("\n")
+      .filter(l => l.startsWith("PEER|"))
+      .map((l, i) => {
+        const parts = l.split("|");
+        return {
+          publicKey: parts[1] ?? "",
+          presharedKey: parts[2] ?? "",
+          allowedIps: parts[3] ?? "",
+          name: parts[4]?.trim() || null,
+        };
+      })
+      .filter(p => p.publicKey.length > 0);
+
     return {
       success: true,
       message: `Imported ${iface} on port ${port} — ${wireguardStatus}, ${existingPeerCount} existing peer(s)`,
@@ -242,6 +266,7 @@ if systemctl is-active "wg-quick@$IFACE" > /dev/null 2>&1; then echo "RUNNING=1"
       subnet,
       wireguardStatus,
       existingPeerCount,
+      peers,
     };
   } catch (err: unknown) {
     return { success: false, message: err instanceof Error ? err.message : String(err) };
