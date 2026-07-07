@@ -11,6 +11,7 @@ import {
   useCreateClient,
   useDeleteClient,
   useUpdateNodeSsh,
+  useTestNodeConnection,
   getListNodesQueryKey,
   getGetNodeQueryKey,
   getListClientsQueryKey
@@ -18,7 +19,7 @@ import {
 import { useLocation, Link, useParams } from "wouter";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { ArrowLeft, Play, Square, RotateCw, Activity, Trash2, Shield, Plus, Settings, Key, QrCode, Download, Lock, KeyRound, Pencil } from "lucide-react";
+import { ArrowLeft, Play, Square, RotateCw, Activity, Trash2, Shield, Plus, Settings, Key, QrCode, Download, Lock, KeyRound, Pencil, Terminal, CheckCircle2, XCircle } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
 import { ConfirmationDialog } from "@/components/confirmation-dialog";
 import { TerminalBox } from "@/components/terminal-box";
@@ -68,6 +69,8 @@ export default function NodeDetail() {
   const [isClientDialogOpen, setIsClientDialogOpen] = useState(false);
   const [isEditSshOpen, setIsEditSshOpen] = useState(false);
 
+  const [sshTestResult, setSshTestResult] = useState<{ success: boolean; message: string } | null>(null);
+
   const [editMethod, setEditMethod] = useState<"password" | "private_key">("password");
   const [editUser, setEditUser] = useState("");
   const [editPort, setEditPort] = useState("");
@@ -87,6 +90,7 @@ export default function NodeDetail() {
   const createClient = useCreateClient();
   const deleteClient = useDeleteClient();
   const updateSsh = useUpdateNodeSsh();
+  const testConnection = useTestNodeConnection();
 
   const openEditSsh = () => {
     if (!node) return;
@@ -96,6 +100,7 @@ export default function NodeDetail() {
     setEditPassword("");
     setEditPrivateKey("");
     setEditError("");
+    setSshTestResult(null);
     setIsEditSshOpen(true);
   };
 
@@ -369,6 +374,36 @@ export default function NodeDetail() {
             <div>
               <span className="text-xs text-muted-foreground uppercase block">Created At</span>
               <span>{new Date(node.createdAt).toLocaleString()}</span>
+            </div>
+            <div className="pt-2 border-t border-border">
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full font-mono text-xs font-bold tracking-wider"
+                disabled={testConnection.isPending}
+                onClick={() => {
+                  setSshTestResult(null);
+                  testConnection.mutate({ nodeId }, {
+                    onSuccess: (res) => setSshTestResult({ success: res.success, message: res.message }),
+                    onError: (err: any) => setSshTestResult({ success: false, message: err?.message || "Connection failed" }),
+                  });
+                }}
+              >
+                <Terminal className="w-3 h-3 mr-2" />
+                {testConnection.isPending ? "TESTING..." : "TEST SSH CONNECTION"}
+              </Button>
+              {sshTestResult !== null && (
+                <div className={`mt-2 p-2 rounded border font-mono text-xs flex items-start gap-2 ${
+                  sshTestResult.success
+                    ? "bg-green-500/10 border-green-500/20 text-green-500"
+                    : "bg-destructive/10 border-destructive/20 text-destructive"
+                }`}>
+                  {sshTestResult.success
+                    ? <CheckCircle2 className="w-3 h-3 shrink-0 mt-0.5" />
+                    : <XCircle className="w-3 h-3 shrink-0 mt-0.5" />}
+                  {sshTestResult.message}
+                </div>
+              )}
             </div>
           </div>
         </div>
